@@ -18,14 +18,11 @@ import * as express from 'express';
 import * as log4js from 'log4js';
 import {Csnf} from 'onug-csnf';
 
+
 import DockerhubDecorator from "./decorators/dockerhub";
 import DispatcherManager from "./dispatchers";
 import {
-    SysdigSecureReceiver,
     AquasecReceiver,
-    IBMCloudSecurityAndComplianceCenterReceiver,
-    AzureDefenderReceiver,
-    OracleCloudGuardReceiver
 } from "./receivers";
 
 const logger = log4js.getLogger('server');
@@ -33,45 +30,41 @@ logger.level = process.env.LOG_LEVEL || 'debug';
 
 const dotenv = require('dotenv');
 dotenv.config();
-console.log(`The SPLUNK_URL is ${process.env.SPLUNK_URL}`);
 
 class ServerApp {
     async start() {
         logger.trace('> start');
 
-        // Create app server
+        // Create app server.
         const server = express();
         server.use(express.json());
 
-        // Initialize CSNF SDK
+        // Initialize CSNF SDK.
         const csnf = new Csnf();
 
-        // Register a set of dictionaries
-        //csnf.registerDictionary('./dictionaries/sysdig-secure.json');
+        // Register a set of dictionaries.
         csnf.registerDictionary('./dictionaries/aquasec.json');
-        //csnf.registerDictionary('./dictionaries/ibm-scc.json');
-        //csnf.registerDictionary('./dictionaries/azure-defender.json');
-        //csnf.registerDictionary('./dictionaries/oracle-cloud-guard.json');
 
-        // Register a set of decorators
-        // csnf.registerDecorator(new DockerhubDecorator());
+        // Register a set of decorators.
         csnf.registerDecorator(new DockerhubDecorator());
-        // Add receivers
+
+        // Add receivers.
         const dispatcherManager = new DispatcherManager();
-        //server.use('/receivers/sysdig-secure', new SysdigSecureReceiver(csnf, dispatcherManager).router);
-        server.use('/receivers/aquasec', new AquasecReceiver(csnf, dispatcherManager).router);
-        //server.use('/receivers/ibm-scc', new IBMCloudSecurityAndComplianceCenterReceiver(csnf, dispatcherManager).router);
-        //server.use('/receivers/azure-defender', new AzureDefenderReceiver(csnf, dispatcherManager).router);
-        //server.use('/receivers/oracle-cloud-guard', new OracleCloudGuardReceiver(csnf, dispatcherManager).router);
 
-        server.use((req, res) => {
-            res.status(404).send('not found');
-        });
+        // Add routes.
+        // For now we only have one route. but we will need to decide the best
+        // method to handle multiple routes based upon either cloudevent attributes or event data.
+        server.use('/', new AquasecReceiver(csnf, dispatcherManager).router);
+        // server.use((req, res) => {
+        //     res.status(404).send('not found');
+        // });
 
+        // Add environment variables.
         const protocol = process.env.SERVER_PROTOCOL || 'http';
         const domain = process.env.SERVER_DOMAIN || 'localhost';
-        const port = process.env.SERVER_PORT || 3000;
+        const port = process.env.SERVER_PORT || 8080;
 
+        // Start server.
         server.listen(port, () => {
             logger.info(`listening on ${protocol}://${domain}:${port}`);
         });

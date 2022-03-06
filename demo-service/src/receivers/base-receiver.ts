@@ -21,6 +21,7 @@ import {Csnf, CsnfEvent} from 'onug-csnf';
 
 import {DispatcherManager, Dispatchers} from "../dispatchers";
 import {Logger} from "log4js";
+const { HTTP } = require("cloudevents");
 
 export default abstract class BaseReceiver {
     protected dictionaryName: string;
@@ -63,8 +64,11 @@ export default abstract class BaseReceiver {
     }
 
     protected extractEvent(req) {
+        const receivedEvent = HTTP.toEvent({ headers: req.headers, body: req.body });
         this.logger.trace('> extractEvent');
-        const originalEvent = req.body;
+        const originalEvent = JSON.parse(req.body.Body)
+        // console.log(originalEvent);
+        // const originalEvent = req.body;
         this.logger.trace('< extractEvent');
         return originalEvent;
     }

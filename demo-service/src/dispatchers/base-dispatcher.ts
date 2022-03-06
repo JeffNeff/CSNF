@@ -24,10 +24,11 @@ export enum Dispatchers {
     IBM_SCC = 'ibm-scc',
     AZURE_SENTINEL = 'azure-sentinel',
     AZURE_MONITOR = 'azure-monitor',
+    CLOUDEVENTS = 'cloudevents',
+    DEBUG = 'debug',
     SPLUNK = 'splunk',
     KAFKA = 'kafka',
     QRADAR = 'qradar',
-    DEBUG = 'debug',
     ALL = 'all'
 }
 

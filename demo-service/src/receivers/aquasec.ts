@@ -19,11 +19,10 @@ import {Csnf} from "onug-csnf";
 import {DispatcherManager, Dispatchers} from "../dispatchers";
 
 const DICTIONARY_NAME = 'aquasec';
-const DISPATCHERS = [Dispatchers.ALL];
+const DISPATCHERS = [Dispatchers.CLOUDEVENTS];
 
 export default class AquasecReceiver extends BaseReceiver {
     constructor(csnf: Csnf, dispatcherManager: DispatcherManager) {
         super(csnf, dispatcherManager, DICTIONARY_NAME, DISPATCHERS);
     }
 }
-

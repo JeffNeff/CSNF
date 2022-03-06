@@ -17,13 +17,9 @@
 import * as log4js from 'log4js';
 
 import {Dispatcher, Dispatchers} from "./base-dispatcher";
-import IbmSccDispatcher from "./ibm-scc";
-import AzureSentinelDispatcher from "./azure-sentinel";
-import AzureMonitorDispatcher from "./azure-monitor";
-import SplunkDispatcher from "./splunk";
-// import KafkaDispatcher from "./kafka";
-import QradarDispatcher from "./qradar";
+import CloudeventsDispatcher from "./cloudevents";
 import DebugDispatcher from "./debug";
+
 import {CsnfEvent} from "onug-csnf";
 
 const logger = log4js.getLogger('dispatcher-manager');
@@ -36,13 +32,7 @@ export default class DispatcherManager {
 
     constructor() {
         logger.trace('> constructor');
-        // this.dispatchers.push(new DebugDispatcher());
-        // this.dispatchers.push(new IbmSccDispatcher());
-        // this.dispatchers.push(new AzureSentinelDispatcher());
-        // this.dispatchers.push(new AzureMonitorDispatcher());
-        this.dispatchers.push(new SplunkDispatcher());
-        // this.dispatchers.push(new KafkaDispatcher());
-        // this.dispatchers.push(new QradarDispatcher());
+        this.dispatchers.push(new CloudeventsDispatcher());
         logger.trace('< constructor');
     }
 
@@ -58,4 +48,3 @@ export default class DispatcherManager {
         logger.trace('< dispatch');
     }
 }
-
