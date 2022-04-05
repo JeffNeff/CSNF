@@ -655,3 +655,188 @@ spec:
     spec:
       containers:
         - image: docker.io/n3wscott/sockeye:v0.7.0@sha256:e603d8494eeacce966e57f8f508e4c4f6bebc71d095e3f5a0a1abaf42c5f0e48
+        
+---
+
+# The Terrafrom Funcion Trigger to propogate the Cloud Guard events into the Search Function
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: paths
+spec:
+  broker: brkr
+  filter:
+    attributes:
+      type:  io.triggermesh.csnf.cloudguard.transformation
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: paths
+
+---
+
+# Creates a Paths adapter, allowing us to easily filter events baised upon a simple JS expression/evaluation 
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: paths
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/triggermesh/paths:latest
+          env:
+            - name: PATH_A_CONTINUE_IF
+              value: (event.event.name === "SCANNED_HOST_VULNERABILITY")
+            - name: PATH_A_CONTINUE_PATH
+              value: http://broker-ingress.knative-eventing.svc.cluster.local/default/brkr
+            - name: PATH_A_CONTINUE_TYPE
+              value: io.triggermesh.terraform.reinit
+            - name: PATH_B_CONTINUE_IF
+              value: (event.event.name === "CONFIG_CHANGE")
+            - name: PATH_B_CONTINUE_PATH
+              value: http://broker-ingress.knative-eventing.svc.cluster.local/default/brkr
+            - name: PATH_B_CONTINUE_TYPE
+              value: io.triggermesh.terraform.start
+            - name: DEFAULT_CONTINUE_PATH
+              value: http://broker-ingress.knative-eventing.svc.cluster.local/default/brkr
+            - name: DEFAULT_CONTINUE_TYPE
+              value: io.triggermesh.paths.ContinuePath.default
+
+---
+
+# The Terraform Target Trigger to propogate the filtered CloudGuard events into the Target. 
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: terraform-reinit
+spec:
+  broker: brkr
+  filter:
+    attributes:
+      type:  io.triggermesh.terraform.reinit
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: terraform-target
+
+---
+
+# A service account to allow Terraform to perfrom actions
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: teraform
+  
+---
+
+# Cluster Role for the same reasons mentioned above
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: teraform
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+---
+
+# ...
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: teraform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: teraform
+subjects:
+  - kind: ServiceAccount
+    name: teraform
+    # UPDATE THIS TO MATCH YOUR NAMESPACE:
+    namespace: default
+
+---
+
+# terraform-target exposes a Terraform Target that accepts a terraform plan in the spec 
+# and will launch this plan when it recieves an event. This is HIGHLY POC/WIP work at the moment.
+# currently we are just creating a simple deployment.  
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: terraform-target
+spec:
+  template:
+    spec:
+      serviceAccountName: teraform
+      containers:
+        - image: gcr.io/triggermesh/terraformtarget:latest
+          env:
+          - name: TERAFORMTARGET_WORKING_DIR
+            value: /
+          - name: TERAFORMTARGET_TERRAFORM_PLAN
+            value: |-
+              provider "kubernetes" {
+                # Context to choose from the config file. use only for local development
+                # config_path    = "/project/cmd/"
+                # config_context = "arn:aws:eks:us-west-2:043455440429:cluster/tmkongdemo"
+              }
+              #-----------------------------------------
+              # KUBERNETES DEPLOYMENT COLOR APP
+              #-----------------------------------------
+              resource "kubernetes_deployment" "color" {
+                  metadata {
+                      name = "color-blue-dep"
+                      labels = {
+                          app   = "color"
+                          color = "blue"
+                      } //labels
+                  } //metadata
+
+                  spec {
+                      selector {
+                          match_labels = {
+                              app   = "color"
+                              color = "blue"
+                          } //match_labels
+                      } //selector
+                      #Template for the creation of the pod
+                      template {
+                          metadata {
+                              labels = {
+                                  app   = "color"
+                                  color = "blue"
+                              } //labels
+                          } //metadata
+                          spec {
+                              container {
+                                  image = "itwonderlab/color"   #Docker image name
+                                  name  = "color-blue"          #Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL).
+
+                                  #Block of string name and value pairs to set in the containers environment
+                                  env {
+                                      name = "COLOR"
+                                      value = "blue"
+                                  } //env
+
+                                  #List of ports to expose from the container.
+                                  port {
+                                      container_port = 8080
+                                  }//port
+                              } //container
+                          } //spec
+                      } //template
+                  } //spec
+              } //resource
+
